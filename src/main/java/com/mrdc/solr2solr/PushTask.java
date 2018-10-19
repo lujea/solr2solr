@@ -20,13 +20,17 @@ public class PushTask implements Callable<Boolean> {
 
     private IndexClient sourceSolr;
     private IndexClient targetSolr;
-    private String account;
+    private String query;
+    private String sourceCollection;
+    private String targetCollection;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    public PushTask(IndexClient source, IndexClient target, String account) {
+    public PushTask(IndexClient source, IndexClient target, String sourceCollection, String targetCollection, String query) {
         this.sourceSolr = source;
         this.targetSolr = target;
-        this.account = account;
+        this.sourceCollection = sourceCollection;
+        this.targetCollection = targetCollection;
+        this.query = query;
     }
 
     @Override
@@ -36,18 +40,18 @@ public class PushTask implements Callable<Boolean> {
             @Override
             public void execute(SolrDocumentList solrDocs) {
                 try {
-                    targetSolr.indexDocuments("ma", solrDocs);
+                    targetSolr.indexDocuments(targetCollection, solrDocs);
                 } catch (SolrServerException ex) {
-                    logger.error("SolrServerException: Failed to push documents for account: {}", account, ex);
+                    logger.error("SolrServerException: Failed to push documents for account: {}", query, ex);
                 } catch (IOException ex) {
-                    logger.error("IOException: Failed to push documents for account: {}", account, ex);
+                    logger.error("IOException: Failed to push documents for account: {}", query, ex);
                 }
             }
         ;
         };
-        logger.info("Start processing account: {}", account);
-        sourceSolr.queryIndex("ma", account, pushCallback);
-        logger.info("Finish processing account: {}", account);
+        logger.info("Start processing account: {}", query);
+        sourceSolr.queryIndex(sourceCollection, query, pushCallback);
+        logger.info("Finish processing account: {}", query);
 
         return true;
     }

@@ -43,7 +43,9 @@ public class Starter {
         String[] zkHostsSource = props.getProperty("source.zkHost").split(",");
         String[] zkHostsTarget = props.getProperty("target.zkHost").split(",");
         int nbThreads = Integer.valueOf(props.getProperty("nbThreads", "5"));
-        String accountFiles = props.getProperty("accounts");
+        String accountFiles = props.getProperty("queryLst.path");
+        String sourceCollection = props.getProperty("source.collection");
+        String targetCollection = props.getProperty("target.collection");
 
         IndexClient sourceSolr = new IndexClient(zkHostsSource);
         IndexClient targetSolr = new IndexClient(zkHostsTarget);
@@ -52,8 +54,8 @@ public class Starter {
         List<String> accountList = IOUtils.readLines(stream, "UTF-8");
 
         ForkJoinPool threadPool = new ForkJoinPool(nbThreads);
-        accountList.stream().forEach(account -> {
-            threadPool.submit(new PushTask(sourceSolr, targetSolr, account.trim()));
+        accountList.stream().forEach(query -> {
+            threadPool.submit(new PushTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim()));
 
         });
 

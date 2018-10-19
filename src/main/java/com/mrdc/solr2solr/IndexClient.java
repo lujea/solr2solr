@@ -44,12 +44,10 @@ public class IndexClient {
         queryIndex(collection, account, null);
     }
 
-    public void queryIndex(String collection, String account, ICallback callback) throws SolrServerException, IOException {
-        String queryStr = "NOT documenttype:dss-annotation";
+    public void queryIndex(String collection, String queryStr, ICallback callback) throws SolrServerException, IOException {        
         SolrQuery query = new SolrQuery(queryStr);
         query.set("collection", collection);
-        query.setSort("id", SolrQuery.ORDER.asc);
-        query.addFilterQuery(String.format("fullaccount:%s", account));
+        query.setSort("id", SolrQuery.ORDER.asc);        
 
         query.set("cursorMark", "*");
         query.setRequestHandler("/query");
@@ -62,7 +60,7 @@ public class IndexClient {
             count += response.getResults().size();
             long total = response.getResults().getNumFound();
             if ((count % 100 == 0) && count > 0) {
-                logger.info("Processing account: {} ({}/{})", account, count, total);
+                logger.info("Processing query: {} ({}/{})", query, count, total);
             }
             String nextCursor = response.getNextCursorMark();
             if (callback != null) {
@@ -70,7 +68,7 @@ public class IndexClient {
             }
             query.set("cursorMark", nextCursor);
         }
-        logger.info("Finished reading documents for account: {}", account);
+        logger.info("Finished reading documents for query: {}", query);
 
     }
 
