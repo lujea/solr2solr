@@ -1,0 +1,1 @@
+Simple project to copy Solr documents from one source Solr Cloud cluster to another.
