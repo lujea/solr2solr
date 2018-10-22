@@ -5,7 +5,9 @@
  */
 package com.mrdc.solr2solr;
 
+import java.util.ArrayList;
 import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrInputDocument;
 
 /**
  *
@@ -14,5 +16,7 @@ import org.apache.solr.common.SolrDocumentList;
 public interface ICallback {
 
     public void execute(SolrDocumentList solrDocs);
+
+    public void execute(ArrayList<SolrInputDocument> solrDocs);
 
 }

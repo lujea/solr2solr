@@ -46,6 +46,8 @@ public class Starter {
         String accountFiles = props.getProperty("queryLst.path");
         String sourceCollection = props.getProperty("source.collection");
         String targetCollection = props.getProperty("target.collection");
+        //list of fields from the document
+        String[] documentFields = props.getProperty("document.fields", "id").split(",");
 
         IndexClient sourceSolr = new IndexClient(zkHostsSource);
         IndexClient targetSolr = new IndexClient(zkHostsTarget);
@@ -55,14 +57,14 @@ public class Starter {
 
         ForkJoinPool threadPool = new ForkJoinPool(nbThreads);
         accountList.stream().forEach(query -> {
-            threadPool.submit(new PushTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim()));
+            threadPool.submit(new PushTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields));
 
         });
 
         int running = threadPool.getRunningThreadCount();
         int total = accountList.size();
         logger.info("{} {}", running, total);
-        while (running > 0 && threadPool.isTerminated() == false) {
+        while (threadPool.isTerminated() == false) {
             Thread.sleep(100);
         }
 

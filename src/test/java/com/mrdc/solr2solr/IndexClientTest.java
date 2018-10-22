@@ -5,7 +5,11 @@
  */
 package com.mrdc.solr2solr;
 
-import com.mrdc.solr2solr.IndexClient;
+import java.io.IOException;
+import java.util.ArrayList;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrInputDocument;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,22 +38,34 @@ public class IndexClientTest {
         IndexClient instance = new IndexClient(hosts);
         IndexClient target = new IndexClient(targetHost);
 
-//        ICallback pushCallback = new ICallback() {
-//            @Override
-//            public void execute(SolrDocumentList solrDocs) {
-//                try {
-//                    target.indexDocuments("ma", solrDocs);
-//                } catch (SolrServerException ex) {
-//                    logger.error("SolrServerException: failed to push documents", ex);
-//                } catch (IOException ex) {
-//                    logger.error("IOException: failed to push documents", ex);
-//                }
-//            }
-//        ;
-//        };
-//        
-//        instance.queryIndex("ma", account, pushCallback);
+        ICallback pushCallback = new ICallback() {
+            @Override
+            public void execute(SolrDocumentList solrDocs) {
+                try {
+                    target.indexDocuments("ma", solrDocs);
+                } catch (SolrServerException ex) {
+                    logger.error("SolrServerException: failed to push documents", ex);
+                } catch (IOException ex) {
+                    logger.error("IOException: failed to push documents", ex);
+                }
+            };
 
+            @Override
+            public void execute(ArrayList<SolrInputDocument> solrDocs) {
+                try {
+                    target.indexDocuments("ma", solrDocs);
+                } catch (SolrServerException ex) {
+                    logger.error("SolrServerException: failed to push documents", ex);
+                } catch (IOException ex) {
+                    logger.error("IOException: failed to push documents", ex);
+                }
+            }
+
+        };
+        
+        //instance.queryIndex("ma", account, pushCallback);
+        String[] fieldList = "subject,delivereddatepath,fromtext,language,source,startdate,path,fromemail,personalsubject,action,id,senderdomain,text,attachmenttype,pathleaf,generation".split(",");        
+        //instance.queryWithStream("ma", "fullaccount:hadoop* AND NOT documenttype:dss*", fieldList, null);
     }
 
 }

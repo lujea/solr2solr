@@ -9,14 +9,21 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.io.Tuple;
+import org.apache.solr.client.solrj.io.stream.SolrStream;
+import org.apache.solr.client.solrj.io.stream.StreamContext;
+import org.apache.solr.client.solrj.io.stream.TupleStream;
+import org.apache.solr.client.solrj.io.stream.expr.StreamFactory;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.params.ModifiableSolrParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +37,7 @@ public class IndexClient {
     private SolrClient cloudSolrClient;
     private int batchSize = 10;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private StreamFactory streamFactory;
 
     public IndexClient() {
     }
@@ -40,14 +48,26 @@ public class IndexClient {
         cloudSolrClient = new CloudSolrClient.Builder().withZkHost(hosts).build();
     }
 
+    public IndexClient(String[] zkHost, String collection) {
+        this.zkHost = zkHost;
+        List<String> hosts = Arrays.asList(zkHost);
+        cloudSolrClient = new CloudSolrClient.Builder().withZkHost(hosts).build();
+        streamFactory = new StreamFactory().withCollectionZkHost(collection, hosts.get(0));
+//                .withStreamFunction("search", CloudSolrStream.class)
+//                .withStreamFunction("unique", UniqueStream.class)
+//                .withStreamFunction("top", RankStream.class)
+//                .withStreamFunction("group", ReducerStream.class)
+//                .withStreamFunction("parallel", ParallelStream.class);
+    }
+
     public void queryIndex(String collection, String account) throws SolrServerException, IOException {
         queryIndex(collection, account, null);
     }
 
-    public void queryIndex(String collection, String queryStr, ICallback callback) throws SolrServerException, IOException {        
+    public void queryIndex(String collection, String queryStr, ICallback callback) throws SolrServerException, IOException {
         SolrQuery query = new SolrQuery(queryStr);
         query.set("collection", collection);
-        query.setSort("id", SolrQuery.ORDER.asc);        
+        query.setSort("id", SolrQuery.ORDER.asc);
 
         query.set("cursorMark", "*");
         query.setRequestHandler("/query");
@@ -72,6 +92,48 @@ public class IndexClient {
 
     }
 
+    public void queryWithStream(String collection, String queryStr, String[] fields, ICallback callback) throws IOException {
+        String sort = "id asc";
+        String otherFields = String.join(",", Arrays.asList(fields)).replace(",id,", "").replace(",,", ",");
+        String fl = String.format("\"id,%s\"", otherFields);
+        String cexpr = String.format("select("
+                + "search(%s,fl=%s,q=%s,sort=%s), id as id, %s"
+                + ")", collection, fl, queryStr, sort, otherFields);
+        ModifiableSolrParams paramsLoc = new ModifiableSolrParams();
+        paramsLoc.set("expr", cexpr);
+        paramsLoc.set("qt", "/stream");
+        // Note, the "/collection" below can be an alias.
+        String url = "http://10.10.40.183:31000/solr" + "/" + collection;
+        TupleStream solrStream = new SolrStream(url, paramsLoc);
+        StreamContext context = new StreamContext();
+        solrStream.setStreamContext(context);
+        solrStream.open();
+        Tuple docStream = solrStream.read();
+        ArrayList<SolrInputDocument> docList = new ArrayList<>();
+        while (docStream.EOF == false) {
+            Map docFields = docStream.getMap();
+            SolrInputDocument solrDoc = new SolrInputDocument();
+            docFields.keySet().stream().forEach(docField -> {
+                Object value = docFields.get(docField);
+                solrDoc.addField((String) docField, value);
+            });
+            if (docFields.get("documenttype") != null) {
+                docList.add(solrDoc);
+            } else {
+                logger.error("missing doctype: ({}), {}", solrDoc.get("id"),solrDoc.get("documenttype"));
+            }
+
+            if (callback != null && docList.size() == batchSize) {
+                callback.execute(docList);
+                docList.clear();
+            }
+            docStream = solrStream.read();
+        }
+
+        solrStream.close(); // could be try-with-resources
+
+    }
+
     public void indexDocuments(String collection, SolrDocumentList docList) throws SolrServerException, IOException {
 
         List<SolrInputDocument> docs = new ArrayList<>();
@@ -87,6 +149,19 @@ public class IndexClient {
             if (docs != null) {
                 this.cloudSolrClient.add(collection, docs);
             }
+        } else {
+            logger.error("Failed pushing documents");
+        }
+    }
+
+    public void indexDocuments(String collection, ArrayList<SolrInputDocument> docList) throws SolrServerException, IOException {
+        List<SolrInputDocument> docs = new ArrayList<>();
+        if (docList != null) {
+//            docList.parallelStream().forEach(doc -> {
+//                doc.removeField("_version_");                
+//            });
+            //push the list of documents to Solr
+            this.cloudSolrClient.add(collection, docList);
         } else {
             logger.error("Failed pushing documents");
         }
