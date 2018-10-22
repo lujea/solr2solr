@@ -91,14 +91,18 @@ public class IndexClient {
         logger.info("Finished reading documents for query: {}", query);
 
     }
+//TODO: find why only top-n results are returned
 
     public void queryWithStream(String collection, String queryStr, String[] fields, ICallback callback) throws IOException {
         String sort = "id asc";
         String otherFields = String.join(",", Arrays.asList(fields)).replace(",id,", "").replace(",,", ",");
         String fl = String.format("\"id,%s\"", otherFields);
-        String cexpr = String.format("select("
-                + "search(%s,fl=%s,q=%s,sort=%s), id as id, %s"
-                + ")", collection, fl, queryStr, sort, otherFields);
+//        String cexpr = String.format("select("
+//                + "search(%s,fl=%s,q=%s,sort=%s), id as id, %s"
+//                + ")", collection, fl, queryStr, sort, otherFields);
+
+        String cexpr = String.format("search(%s,fl=%s,q=%s,sort=%s)", collection, fl, queryStr, sort);
+
         ModifiableSolrParams paramsLoc = new ModifiableSolrParams();
         paramsLoc.set("expr", cexpr);
         paramsLoc.set("qt", "/stream");
@@ -108,7 +112,13 @@ public class IndexClient {
         StreamContext context = new StreamContext();
         solrStream.setStreamContext(context);
         solrStream.open();
-        Tuple docStream = solrStream.read();
+        long count = 0;
+        Tuple docStream = null;
+        try {
+            docStream = solrStream.read();
+        } catch (IOException ex) {
+            logger.error("Failed to execute streaming expression {}", cexpr, ex);
+        }
         ArrayList<SolrInputDocument> docList = new ArrayList<>();
         while (docStream.EOF == false) {
             Map docFields = docStream.getMap();
@@ -117,17 +127,19 @@ public class IndexClient {
                 Object value = docFields.get(docField);
                 solrDoc.addField((String) docField, value);
             });
-            if (docFields.get("documenttype") != null) {
-                docList.add(solrDoc);
-            } else {
-                logger.error("missing doctype: ({}), {}", solrDoc.get("id"),solrDoc.get("documenttype"));
-            }
+
+            docList.add(solrDoc);
 
             if (callback != null && docList.size() == batchSize) {
                 callback.execute(docList);
                 docList.clear();
             }
             docStream = solrStream.read();
+            count += 1;
+        }
+
+        if (callback != null && docList.size() > 0) {
+            callback.execute(docList);
         }
 
         solrStream.close(); // could be try-with-resources
