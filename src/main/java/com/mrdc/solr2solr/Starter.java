@@ -69,7 +69,7 @@ public class Starter {
 
         ForkJoinPool threadPool = new ForkJoinPool(nbThreads);
         accountList.stream().forEach(query -> {
-            threadPool.submit(new PushTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields));
+            threadPool.submit(new ProcessDocTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields));
 
         });
 

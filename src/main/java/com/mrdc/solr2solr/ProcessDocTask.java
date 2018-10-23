@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author ludovic
  */
-public class PushTask implements Callable<Boolean> {
+public class ProcessDocTask implements Callable<Boolean> {
 
     private IndexClient sourceSolr;
     private IndexClient targetSolr;
@@ -28,7 +28,7 @@ public class PushTask implements Callable<Boolean> {
     private String[] fields;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    public PushTask(IndexClient source, IndexClient target, String sourceCollection, String targetCollection, String query, String[] fields) {
+    public ProcessDocTask(IndexClient source, IndexClient target, String sourceCollection, String targetCollection, String query, String[] fields) {
         this.sourceSolr = source;
         this.targetSolr = target;
         this.sourceCollection = sourceCollection;
