@@ -35,7 +35,7 @@ public class IndexClient {
 
     private String[] zkHost;
     private SolrClient cloudSolrClient;
-    private int batchSize = 10;
+    private int batchSize = 15;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private StreamFactory streamFactory;
 
@@ -100,15 +100,16 @@ public class IndexClient {
         query.set("cursorMark", "*");
         query.setRequestHandler("/query");
         query.setRows(batchSize);
+        //query.set("shards", "10.10.40.183:31000/solr/ma_shard15_replica1");
         boolean isDone = false;
-        SolrDocumentCallback solrCallback = new SolrDocumentCallback(callback, batchSize);
+        SolrDocumentCallback solrCallback = new SolrDocumentCallback(callback, 10);
         long count = 0;
         while (isDone == false) {
             QueryResponse response = cloudSolrClient.queryAndStreamResponse(collection, query, solrCallback);
             count = solrCallback.getCount();
             long total = solrCallback.getNumFound();
             if ((count % 100 == 0) && count > 0) {
-                logger.info("Processing query: {} ({}/{})", query, count, total);
+                logger.info("Processing query: ({}/{}) {}", count, total, query);
             }
             String nextCursor = response.getNextCursorMark();            
             query.set("cursorMark", nextCursor);

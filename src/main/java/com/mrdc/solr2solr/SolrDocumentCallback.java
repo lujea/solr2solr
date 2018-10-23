@@ -32,19 +32,19 @@ public class SolrDocumentCallback extends StreamingResponseCallback {
         docs = new ArrayList<>();
         this.batchSize = batchSize;
         count = 0;
-        readMeter = Starter.metrics.meter("read-docs");
+        readMeter = Starter.metrics.meter("read-docs");        
     }
 
     @Override
     public void streamSolrDocument(SolrDocument sd) {
         readMeter.mark();
-        if (docs.size() < batchSize) {
-            SolrInputDocument doc = toSolrInputDocument(sd);
-            doc.remove("_version_");
-            docs.add(doc);
-        } else {
-            this.indexingCallback.execute(docs);
-        }
+//        if (docs.size() < batchSize) {
+//            SolrInputDocument doc = toSolrInputDocument(sd);
+//            doc.remove("_version_");
+//            docs.add(doc);
+//        } else {
+//            this.indexingCallback.execute(docs);
+//        }
         this.count += 1;
 
     }
