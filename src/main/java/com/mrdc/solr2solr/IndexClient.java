@@ -91,8 +91,32 @@ public class IndexClient {
         logger.info("Finished reading documents for query: {}", query);
 
     }
-//TODO: find why only top-n results are returned
 
+    public void queryWithStream(String collection, String queryStr, String[] fields, ICallback callback) throws IOException, SolrServerException {
+        SolrQuery query = new SolrQuery(queryStr);
+        query.set("collection", collection);
+        query.setSort("id", SolrQuery.ORDER.asc);
+
+        query.set("cursorMark", "*");
+        query.setRequestHandler("/query");
+        query.setRows(batchSize);
+        boolean isDone = false;
+        SolrDocumentCallback solrCallback = new SolrDocumentCallback(callback, batchSize);
+        long count = 0;
+        while (isDone == false) {
+            QueryResponse response = cloudSolrClient.queryAndStreamResponse(collection, query, solrCallback);
+            count = solrCallback.getCount();
+            long total = solrCallback.getNumFound();
+            if ((count % 100 == 0) && count > 0) {
+                logger.info("Processing query: {} ({}/{})", query, count, total);
+            }
+            String nextCursor = response.getNextCursorMark();            
+            query.set("cursorMark", nextCursor);
+        }
+        logger.info("Finished reading documents for query: {}", query);
+    }
+
+    /*    //TODO: find why only top-n results are returned
     public void queryWithStream(String collection, String queryStr, String[] fields, ICallback callback) throws IOException {
         String sort = "id asc";
         String otherFields = String.join(",", Arrays.asList(fields)).replace(",id,", "").replace(",,", ",");
@@ -145,7 +169,7 @@ public class IndexClient {
         solrStream.close(); // could be try-with-resources
 
     }
-
+     */
     public void indexDocuments(String collection, SolrDocumentList docList) throws SolrServerException, IOException {
 
         List<SolrInputDocument> docs = new ArrayList<>();
