@@ -1,5 +1,6 @@
 package com.mrdc.solr2solr;
 
+import com.codahale.metrics.Meter;
 import java.util.ArrayList;
 import org.apache.solr.client.solrj.StreamingResponseCallback;
 import org.apache.solr.common.SolrDocument;
@@ -24,16 +25,19 @@ public class SolrDocumentCallback extends StreamingResponseCallback {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private long numFound;
     private long count;
+    private Meter readMeter;
 
     public SolrDocumentCallback(ICallback indexingCallback, int batchSize) {
         this.indexingCallback = indexingCallback;
         docs = new ArrayList<>();
         this.batchSize = batchSize;
         count = 0;
+        readMeter = Starter.metrics.meter("read-docs");
     }
 
     @Override
     public void streamSolrDocument(SolrDocument sd) {
+        readMeter.mark();
         if (docs.size() < batchSize) {
             SolrInputDocument doc = toSolrInputDocument(sd);
             doc.remove("_version_");

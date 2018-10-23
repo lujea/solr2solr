@@ -5,6 +5,8 @@
  */
 package com.mrdc.solr2solr;
 
+import com.codahale.metrics.ConsoleReporter;
+import com.codahale.metrics.MetricRegistry;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -12,6 +14,7 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.IOUtils;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.slf4j.Logger;
@@ -24,6 +27,7 @@ import org.slf4j.LoggerFactory;
 public class Starter {
 
     private final static Logger logger = LoggerFactory.getLogger(Starter.class);
+    static final MetricRegistry metrics = new MetricRegistry();
 
     /**
      * @param args the command line arguments
@@ -39,6 +43,14 @@ public class Starter {
 
         Properties props = new Properties();
         props.load(new FileInputStream(config));
+        
+        //configure metrics
+        ConsoleReporter reporter = ConsoleReporter.forRegistry(metrics)
+                .convertRatesTo(TimeUnit.SECONDS)
+                .convertDurationsTo(TimeUnit.MILLISECONDS)
+                .build();
+        reporter.start(1, TimeUnit.MINUTES);
+        
 
         String[] zkHostsSource = props.getProperty("source.zkHost").split(",");
         String[] zkHostsTarget = props.getProperty("target.zkHost").split(",");
@@ -48,7 +60,7 @@ public class Starter {
         String targetCollection = props.getProperty("target.collection");
         //list of fields from the document
         String[] documentFields = props.getProperty("document.fields", "id").split(",");
-
+        
         IndexClient sourceSolr = new IndexClient(zkHostsSource);
         IndexClient targetSolr = new IndexClient(zkHostsTarget);
 
