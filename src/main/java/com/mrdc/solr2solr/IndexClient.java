@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -111,10 +112,42 @@ public class IndexClient {
             if ((count % 100 == 0) && count > 0) {
                 logger.info("Processing query: ({}/{}) {}", count, total, query);
             }
-            String nextCursor = response.getNextCursorMark();            
+            String nextCursor = response.getNextCursorMark();
             query.set("cursorMark", nextCursor);
         }
         logger.info("Finished reading documents for query: {}", query);
+    }
+
+    public boolean queryWithStream(String collection, String queryStr, String[] fields, SolrDocumentCallback solrCallback) throws IOException, SolrServerException {
+        SolrQuery query = new SolrQuery(queryStr);
+        query.set("collection", collection);
+        query.setSort("id", SolrQuery.ORDER.asc);
+        String cursorMark = "*";
+        query.set("cursorMark", cursorMark);
+        query.setRequestHandler("/query");
+        query.setRows(batchSize);
+
+        boolean isDone = false;
+        long count = 0;
+        long total = 0;
+        while (isDone == false) {
+            QueryResponse response = cloudSolrClient.queryAndStreamResponse(collection, query, solrCallback);
+            String nextCursor = response.getNextCursorMark();
+            count = solrCallback.getCount();
+            total = solrCallback.getNumFound();
+            if ((count % 100 == 0) && count > 0) {
+                logger.info("Reading documents ({}/{}) query: {}", count, total, query);
+            }
+            
+            query.set("cursorMark", nextCursor);
+            if (nextCursor.equals(cursorMark)) {
+                isDone = true;
+            }
+            cursorMark = nextCursor;
+
+        }
+        logger.info("Finished reading documents ({}/{}) for query: {}", count, total, query);
+        return true;
     }
 
     /*    //TODO: find why only top-n results are returned

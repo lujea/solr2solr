@@ -5,9 +5,13 @@
  */
 package com.mrdc.solr2solr;
 
+import com.codahale.metrics.Meter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.FutureTask;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
@@ -40,34 +44,43 @@ public class ProcessDocTask implements Callable<Boolean> {
     @Override
     public Boolean call() throws Exception {
 
-        ICallback pushCallback = new ICallback() {
-            @Override
-            public void execute(SolrDocumentList solrDocs) {
-                try {
-                    targetSolr.indexDocuments(targetCollection, solrDocs);
-                } catch (SolrServerException ex) {
-                    logger.error("SolrServerException: Failed to push documents for account: {}", query, ex);
-                } catch (IOException ex) {
-                    logger.error("IOException: Failed to push documents for account: {}", query, ex);
-                }
-            };            
-
-            @Override
-            public void execute(ArrayList<SolrInputDocument> solrDocs) {
-                try {
-                    targetSolr.indexDocuments(targetCollection, solrDocs);
-                } catch (SolrServerException ex) {
-                    logger.error("SolrServerException: Failed to push documents for account: {}", query, ex);
-                } catch (IOException ex) {
-                    logger.error("IOException: Failed to push documents for account: {}", query, ex);
-                }
-            }
-
-        };
-        logger.info("Start processing account: {}", query);
+//        ICallback pushCallback = new ICallback() {
+//            @Override
+//            public void execute(SolrDocumentList solrDocs) {
+//                try {
+//                    targetSolr.indexDocuments(targetCollection, solrDocs);
+//                } catch (SolrServerException ex) {
+//                    logger.error("SolrServerException: Failed to push documents for account: {}", query, ex);
+//                } catch (IOException ex) {
+//                    logger.error("IOException: Failed to push documents for account: {}", query, ex);
+//                }
+//            };            
+//
+//            @Override
+//            public void execute(ArrayList<SolrInputDocument> solrDocs) {
+//                try {
+//                    targetSolr.indexDocuments(targetCollection, solrDocs);
+//                } catch (SolrServerException ex) {
+//                    logger.error("SolrServerException: Failed to push documents for account: {}", query, ex);
+//                } catch (IOException ex) {
+//                    logger.error("IOException: Failed to push documents for account: {}", query, ex);
+//                }
+//            }
+//
+//        };        
         //sourceSolr.queryIndex(sourceCollection, query, pushCallback);
-        sourceSolr.queryWithStream(sourceCollection, query, fields, pushCallback);
-        logger.info("Finish processing account: {}", query);
+        //sourceSolr.queryWithStream(sourceCollection, query, fields, queue);
+        ConcurrentLinkedQueue<SolrInputDocument> queue = new ConcurrentLinkedQueue();
+        ConsumeTask indexDocsTask = new ConsumeTask(targetCollection, targetSolr, queue, 20);
+        FutureTask consumerFuture = new FutureTask(indexDocsTask);
+        Thread t = new Thread(consumerFuture);
+        t.start();
+        ReadTask readSolrDocsTask = new ReadTask(sourceSolr, sourceCollection, fields, query, queue, indexDocsTask);
+        FutureTask producerFuture = new FutureTask(readSolrDocsTask);
+        Thread t1 = new Thread(producerFuture);
+        t1.start();
+
+        
 
         return true;
     }

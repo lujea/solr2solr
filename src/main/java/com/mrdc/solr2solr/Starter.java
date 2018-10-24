@@ -7,6 +7,7 @@ package com.mrdc.solr2solr;
 
 import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Slf4jReporter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,14 +44,13 @@ public class Starter {
 
         Properties props = new Properties();
         props.load(new FileInputStream(config));
-        
+
         //configure metrics
-        ConsoleReporter reporter = ConsoleReporter.forRegistry(metrics)
+        Slf4jReporter reporter = Slf4jReporter.forRegistry(metrics)
                 .convertRatesTo(TimeUnit.SECONDS)
                 .convertDurationsTo(TimeUnit.MILLISECONDS)
                 .build();
-        reporter.start(1, TimeUnit.MINUTES);
-        
+        reporter.start(30, TimeUnit.SECONDS);
 
         String[] zkHostsSource = props.getProperty("source.zkHost").split(",");
         String[] zkHostsTarget = props.getProperty("target.zkHost").split(",");
@@ -60,7 +60,7 @@ public class Starter {
         String targetCollection = props.getProperty("target.collection");
         //list of fields from the document
         String[] documentFields = props.getProperty("document.fields", "id").split(",");
-        
+
         IndexClient sourceSolr = new IndexClient(zkHostsSource);
         IndexClient targetSolr = new IndexClient(zkHostsTarget);
 
@@ -70,16 +70,15 @@ public class Starter {
         ForkJoinPool threadPool = new ForkJoinPool(nbThreads);
         accountList.stream().forEach(query -> {
             threadPool.submit(new ProcessDocTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields));
-
         });
 
-        int running = threadPool.getRunningThreadCount();
-        int total = accountList.size();
-        logger.info("{} {}", running, total);
-        while (threadPool.isTerminated() == false) {
+                
+        Thread.sleep(3000);
+        while (threadPool.hasQueuedSubmissions() || threadPool.getStealCount() > 0 || threadPool.getRunningThreadCount() > 0) {
             Thread.sleep(100);
         }
-
+        threadPool.shutdown();
+        System.exit(0);
     }
 
 }
