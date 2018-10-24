@@ -60,6 +60,10 @@ public class Starter {
         String targetCollection = props.getProperty("target.collection");
         //list of fields from the document
         String[] documentFields = props.getProperty("document.fields", "id").split(",");
+        
+        int readBatchSize = Integer.valueOf(props.getProperty("source.read.docCount", "20"));
+        int writeBatchSize = Integer.valueOf(props.getProperty("target.write.docCount", "20"));
+        
 
         IndexClient sourceSolr = new IndexClient(zkHostsSource);
         IndexClient targetSolr = new IndexClient(zkHostsTarget);
@@ -69,7 +73,7 @@ public class Starter {
 
         ForkJoinPool threadPool = new ForkJoinPool(nbThreads);
         accountList.stream().forEach(query -> {
-            threadPool.submit(new ProcessDocTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields));
+            threadPool.submit(new ProcessDocTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields, readBatchSize, writeBatchSize));
         });
 
                 

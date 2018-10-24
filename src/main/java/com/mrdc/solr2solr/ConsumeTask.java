@@ -29,6 +29,7 @@ public class ConsumeTask implements Callable<Boolean> {
     private boolean doneReading = false;
     private int solrBatchSize;
     private long count;
+    private boolean startedReading = false;
 
     public ConsumeTask(String collection, IndexClient targetSolr, ConcurrentLinkedQueue<SolrInputDocument> queue, int solrBatchSize) {
         this.queue = queue;
@@ -45,7 +46,17 @@ public class ConsumeTask implements Callable<Boolean> {
         boolean isWriting = true;
 
         while (isWriting == true) {
-            isWriting = (queue.size() > 0 || (doneReading == true));
+            //wait until the producer has started reading documents
+            if (startedReading == false) {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException ex) {
+                }
+            }
+            isWriting = (queue.size() > 0 || doneReading == false);
+//            if (isWriting == false) {
+//                logger.info("ici: {} {} {} ", queue.size() > 0, doneReading, isWriting);
+//            }
             if (queue.size() > 0) {
                 SolrInputDocument solrDoc = (SolrInputDocument) queue.poll();
                 docs.add(solrDoc);
@@ -54,7 +65,7 @@ public class ConsumeTask implements Callable<Boolean> {
                     pushToSolr(docs);
                     count += docs.size();
                     docs.clear();
-                }                
+                }
             } else {
                 try {
                     Thread.sleep(500);
@@ -74,6 +85,10 @@ public class ConsumeTask implements Callable<Boolean> {
 
     public void setDoneReading(Boolean readStatus) {
         this.doneReading = readStatus;
+    }
+
+    public void setStartReading(boolean status) {
+        this.startedReading = status;
     }
 
     private void pushToSolr(ArrayList<SolrInputDocument> docs) {

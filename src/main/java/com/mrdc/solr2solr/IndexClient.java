@@ -118,14 +118,14 @@ public class IndexClient {
         logger.info("Finished reading documents for query: {}", query);
     }
 
-    public boolean queryWithStream(String collection, String queryStr, String[] fields, SolrDocumentCallback solrCallback) throws IOException, SolrServerException {
+    public boolean queryWithStream(String collection, String queryStr, String[] fields, SolrDocumentCallback solrCallback, int readBatchSize) throws IOException, SolrServerException {
         SolrQuery query = new SolrQuery(queryStr);
         query.set("collection", collection);
         query.setSort("id", SolrQuery.ORDER.asc);
         String cursorMark = "*";
         query.set("cursorMark", cursorMark);
         query.setRequestHandler("/query");
-        query.setRows(batchSize);
+        query.setRows(readBatchSize);        
 
         boolean isDone = false;
         long count = 0;

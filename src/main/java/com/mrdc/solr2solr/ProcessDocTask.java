@@ -31,14 +31,22 @@ public class ProcessDocTask implements Callable<Boolean> {
     private String targetCollection;
     private String[] fields;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private int readBatchSize;
+    private int writeBatchSize;
 
     public ProcessDocTask(IndexClient source, IndexClient target, String sourceCollection, String targetCollection, String query, String[] fields) {
+        this(source, target, sourceCollection, targetCollection, query, fields, 20, 20);
+    }
+    
+    public ProcessDocTask(IndexClient source, IndexClient target, String sourceCollection, String targetCollection, String query, String[] fields, int readBatchSize, int writeBatchSize) {
         this.sourceSolr = source;
         this.targetSolr = target;
         this.sourceCollection = sourceCollection;
         this.targetCollection = targetCollection;
         this.query = query;
         this.fields = fields;
+        this.readBatchSize = readBatchSize;
+        this.writeBatchSize = writeBatchSize;
     }
 
     @Override
@@ -71,11 +79,11 @@ public class ProcessDocTask implements Callable<Boolean> {
         //sourceSolr.queryIndex(sourceCollection, query, pushCallback);
         //sourceSolr.queryWithStream(sourceCollection, query, fields, queue);
         ConcurrentLinkedQueue<SolrInputDocument> queue = new ConcurrentLinkedQueue();
-        ConsumeTask indexDocsTask = new ConsumeTask(targetCollection, targetSolr, queue, 20);
+        ConsumeTask indexDocsTask = new ConsumeTask(targetCollection, targetSolr, queue, writeBatchSize);
         FutureTask consumerFuture = new FutureTask(indexDocsTask);
         Thread t = new Thread(consumerFuture);
         t.start();
-        ReadTask readSolrDocsTask = new ReadTask(sourceSolr, sourceCollection, fields, query, queue, indexDocsTask);
+        ReadTask readSolrDocsTask = new ReadTask(sourceSolr, sourceCollection, fields, query, queue, indexDocsTask, readBatchSize);
         FutureTask producerFuture = new FutureTask(readSolrDocsTask);
         Thread t1 = new Thread(producerFuture);
         t1.start();
