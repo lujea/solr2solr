@@ -52,7 +52,7 @@ public class Starter {
                 .convertRatesTo(TimeUnit.SECONDS)
                 .convertDurationsTo(TimeUnit.MILLISECONDS)
                 .build();
-        reporter.start(30, TimeUnit.SECONDS);
+        reporter.start(10, TimeUnit.SECONDS);
 
         String[] zkHostsSource = props.getProperty("source.zkHost").split(",");
         String[] zkHostsTarget = props.getProperty("target.zkHost").split(",");
