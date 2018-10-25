@@ -88,7 +88,10 @@ public class ProcessDocTask implements Callable<Boolean> {
         Thread t1 = new Thread(producerFuture);
         t1.start();
 
-        
+        //wait for the documents to be writen to Solr
+        while(t1.isAlive()){            
+            Thread.sleep(100);
+        }
 
         return true;
     }

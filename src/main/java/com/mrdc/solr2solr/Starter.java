@@ -12,9 +12,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.IOUtils;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -60,10 +62,9 @@ public class Starter {
         String targetCollection = props.getProperty("target.collection");
         //list of fields from the document
         String[] documentFields = props.getProperty("document.fields", "id").split(",");
-        
+
         int readBatchSize = Integer.valueOf(props.getProperty("source.read.docCount", "20"));
         int writeBatchSize = Integer.valueOf(props.getProperty("target.write.docCount", "20"));
-        
 
         IndexClient sourceSolr = new IndexClient(zkHostsSource);
         IndexClient targetSolr = new IndexClient(zkHostsTarget);
@@ -71,17 +72,27 @@ public class Starter {
         InputStream stream = new FileInputStream(accountFiles);
         List<String> accountList = IOUtils.readLines(stream, "UTF-8");
 
+        ArrayList<ForkJoinTask> taskList = new ArrayList<>();
+
         ForkJoinPool threadPool = new ForkJoinPool(nbThreads);
         accountList.stream().forEach(query -> {
-            threadPool.submit(new ProcessDocTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields, readBatchSize, writeBatchSize));
+            ForkJoinTask task = threadPool.submit(new ProcessDocTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields, readBatchSize, writeBatchSize));
+            taskList.add(task);
         });
 
-                
-        Thread.sleep(3000);
-        while (threadPool.hasQueuedSubmissions() || threadPool.getStealCount() > 0 || threadPool.getRunningThreadCount() > 0) {
+        boolean isCompleted = false;
+        Thread.sleep(5000);
+        while (!isCompleted) {
+            int numCompleted = 0;
+            for (ForkJoinTask task : taskList) {
+                if (task.isDone() || task.isCompletedNormally() || task.isCompletedAbnormally()) {
+                    numCompleted += 1;
+                }
+            }
+            isCompleted = (numCompleted == taskList.size());
             Thread.sleep(100);
         }
-        threadPool.shutdown();
+
         System.exit(0);
     }
 
