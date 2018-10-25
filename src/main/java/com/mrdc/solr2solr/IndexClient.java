@@ -141,7 +141,7 @@ public class IndexClient {
             count = solrCallback.getCount();
             total = solrCallback.getNumFound();
             if ((count % 100 == 0) && count > 0) {
-                logger.info("Reading documents ({}/{}) query: {}", count, total, query);
+                logger.debug("Reading documents ({}/{}) query: {}", count, total, query);
             }
 
             query.set("cursorMark", nextCursor);
