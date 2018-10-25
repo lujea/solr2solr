@@ -23,6 +23,7 @@ import org.apache.solr.client.solrj.io.stream.StreamContext;
 import org.apache.solr.client.solrj.io.stream.TupleStream;
 import org.apache.solr.client.solrj.io.stream.expr.StreamFactory;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
@@ -42,7 +43,7 @@ public class IndexClient {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private StreamFactory streamFactory;
     private int numSolrClient = 10;
-    private HashMap<Integer, SolrClient> solrClientMap = new HashMap<>();
+    private HashMap<Integer, CloudSolrClient> solrClientMap = new HashMap<>();
     private Random random = new Random();
 
     public IndexClient() {
@@ -123,7 +124,7 @@ public class IndexClient {
         logger.info("Finished reading documents for query: {}", query);
     }
 
-    public boolean queryWithStream(String collection, SolrQuery query, String[] fields, SolrDocumentCallback solrCallback) throws IOException, SolrServerException {         
+    public boolean queryWithStream(String collection, SolrQuery query, String[] fields, SolrDocumentCallback solrCallback) throws IOException, SolrServerException {
         String cursorMark = "*";
         query.set("cursorMark", cursorMark);
         boolean isDone = false;
@@ -224,13 +225,18 @@ public class IndexClient {
     }
 
     public void indexDocuments(String collection, ArrayList<SolrInputDocument> docList) throws SolrServerException, IOException {
-        List<SolrInputDocument> docs = new ArrayList<>();
+
         if (docList != null) {
-//            docList.parallelStream().forEach(doc -> {
-//                doc.removeField("_version_");                
-//            });
+            CloudSolrClient solrClient = getCloudSolrClient();
             //push the list of documents to Solr
-            getCloudSolrClient().add(collection, docList);
+            UpdateResponse response = solrClient.add(collection, docList);
+            int status = response.getStatus();
+            if (status != 0) {
+                logger.warn("Failed to push documents, will try again");
+                //try once-more with another client
+                solrClient = getCloudSolrClient();
+                solrClient.add(collection, docList);
+            }
         } else {
             logger.error("Failed pushing documents");
         }
@@ -254,13 +260,16 @@ public class IndexClient {
         return doc;
     }
 
-    protected SolrClient getCloudSolrClient() {
-        SolrClient localCloudSolrClient;
+    protected CloudSolrClient getCloudSolrClient() {
+        CloudSolrClient localCloudSolrClient;
 
         int randomId = random.nextInt(numSolrClient);
         if (solrClientMap.containsKey(randomId) == false) {
             List<String> hosts = Arrays.asList(zkHost);
             CloudSolrClient solrClient = new CloudSolrClient.Builder().withZkHost(hosts).build();
+            //set zkclient timeout to 5 minutes
+            solrClient.setZkClientTimeout(5 * 60 * 1000);
+            //solrClient.setZkConnectTimeout(60*1000);        
             solrClientMap.put(randomId, solrClient);
         }
         localCloudSolrClient = solrClientMap.get(randomId);
