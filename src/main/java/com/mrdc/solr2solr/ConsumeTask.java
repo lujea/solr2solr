@@ -53,11 +53,11 @@ public class ConsumeTask implements Callable<Boolean> {
                 } catch (InterruptedException ex) {
                 }
             }
-            isWriting = (queue.size() > 0 || doneReading == false);
+            isWriting = (!queue.isEmpty() || doneReading == false);
 //            if (isWriting == false) {
 //                logger.info("ici: {} {} {} ", queue.size() > 0, doneReading, isWriting);
 //            }
-            if (queue.size() > 0) {
+            if (!queue.isEmpty()) {
                 SolrInputDocument solrDoc = (SolrInputDocument) queue.poll();
                 docs.add(solrDoc);
                 if (docs.size() == solrBatchSize) {
