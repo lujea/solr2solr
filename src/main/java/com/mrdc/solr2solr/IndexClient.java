@@ -8,8 +8,10 @@ package com.mrdc.solr2solr;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
@@ -39,6 +41,9 @@ public class IndexClient {
     private int batchSize = 15;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private StreamFactory streamFactory;
+    private int numSolrClient = 10;
+    private HashMap<Integer, SolrClient> solrClientMap = new HashMap<>();
+    private Random random = new Random();
 
     public IndexClient() {
     }
@@ -125,7 +130,7 @@ public class IndexClient {
         String cursorMark = "*";
         query.set("cursorMark", cursorMark);
         query.setRequestHandler("/query");
-        query.setRows(readBatchSize);        
+        query.setRows(readBatchSize);
 
         boolean isDone = false;
         long count = 0;
@@ -138,7 +143,7 @@ public class IndexClient {
             if ((count % 100 == 0) && count > 0) {
                 logger.info("Reading documents ({}/{}) query: {}", count, total, query);
             }
-            
+
             query.set("cursorMark", nextCursor);
             if (nextCursor.equals(cursorMark)) {
                 isDone = true;
@@ -217,7 +222,7 @@ public class IndexClient {
                 }
             });
             if (docs != null) {
-                this.cloudSolrClient.add(collection, docs);
+                getCloudSolrClient().add(collection, docs);
             }
         } else {
             logger.error("Failed pushing documents");
@@ -231,7 +236,7 @@ public class IndexClient {
 //                doc.removeField("_version_");                
 //            });
             //push the list of documents to Solr
-            this.cloudSolrClient.add(collection, docList);
+            getCloudSolrClient().add(collection, docList);
         } else {
             logger.error("Failed pushing documents");
         }
@@ -253,6 +258,19 @@ public class IndexClient {
         }
 
         return doc;
+    }
+
+    protected SolrClient getCloudSolrClient() {
+        SolrClient localCloudSolrClient;
+
+        int randomId = random.nextInt(numSolrClient);
+        if (solrClientMap.containsKey(randomId) == false) {
+            List<String> hosts = Arrays.asList(zkHost);
+            CloudSolrClient solrClient = new CloudSolrClient.Builder().withZkHost(hosts).build();
+            solrClientMap.put(randomId, solrClient);
+        }
+        localCloudSolrClient = solrClientMap.get(randomId);
+        return localCloudSolrClient;
     }
 
 }
