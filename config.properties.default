@@ -1,20 +1,27 @@
 #url of the source Solr server
-source.zkHost=10.10.40.183:32000/solr
+source.zkHost=10.10.x.x:32000/solr
 
 #name of the collection to get the data from
 source.collection=source
 
 #url of the target Solr server
-target.zkHost=10.10.23.218:32000/solr
+target.zkHost=10.10.x.x:32000/solr
 
 #name of the collection where to write the documents
 target.collection=target
 
 #number of queries that will be run in parallel
 nbThreads=5
+
 #path to the list of queries to execute to get the data
-queryLst.path=/home/ludovic/fileMix/solr2solr/queries.txt
+queryLst.path=/path/to/queries.txt
 
 
 #list of fields to copy. Note that the fiels must be separated using comma (",") as separator
 document.fields=id,text
+
+#number of results returned by a single solr query
+source.read.docCount=50
+
+#number of documents push to Solr when doing add documents
+target.write.docCount=30
