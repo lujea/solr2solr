@@ -33,12 +33,13 @@ public class ProcessDocTask implements Callable<Boolean> {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private int readBatchSize;
     private int writeBatchSize;
+    private String[] filterQuery;
 
     public ProcessDocTask(IndexClient source, IndexClient target, String sourceCollection, String targetCollection, String query, String[] fields) {
         this(source, target, sourceCollection, targetCollection, query, fields, 20, 20);
     }
     
-    public ProcessDocTask(IndexClient source, IndexClient target, String sourceCollection, String targetCollection, String query, String[] fields, int readBatchSize, int writeBatchSize) {
+    public ProcessDocTask(IndexClient source, IndexClient target, String sourceCollection, String targetCollection, String query, String[] fields, int readBatchSize, int writeBatchSize, String... filterQuery) {
         this.sourceSolr = source;
         this.targetSolr = target;
         this.sourceCollection = sourceCollection;
@@ -47,6 +48,7 @@ public class ProcessDocTask implements Callable<Boolean> {
         this.fields = fields;
         this.readBatchSize = readBatchSize;
         this.writeBatchSize = writeBatchSize;
+        this.filterQuery = filterQuery;
     }
 
     @Override
@@ -83,7 +85,7 @@ public class ProcessDocTask implements Callable<Boolean> {
         FutureTask consumerFuture = new FutureTask(indexDocsTask);
         Thread t = new Thread(consumerFuture);
         t.start();
-        ReadTask readSolrDocsTask = new ReadTask(sourceSolr, sourceCollection, fields, query, queue, indexDocsTask, readBatchSize);
+        ReadTask readSolrDocsTask = new ReadTask(sourceSolr, sourceCollection, fields, query, queue, indexDocsTask, readBatchSize, filterQuery);
         FutureTask producerFuture = new FutureTask(readSolrDocsTask);
         Thread t1 = new Thread(producerFuture);
         t1.start();

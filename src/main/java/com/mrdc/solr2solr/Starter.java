@@ -70,13 +70,16 @@ public class Starter {
         IndexClient targetSolr = new IndexClient(zkHostsTarget);
 
         InputStream stream = new FileInputStream(accountFiles);
-        List<String> accountList = IOUtils.readLines(stream, "UTF-8");
+        List<String> queryList = IOUtils.readLines(stream, "UTF-8");
 
         ArrayList<ForkJoinTask> taskList = new ArrayList<>();
 
         ForkJoinPool threadPool = new ForkJoinPool(nbThreads);
-        accountList.stream().forEach(query -> {
-            ForkJoinTask task = threadPool.submit(new ProcessDocTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields, readBatchSize, writeBatchSize));
+        queryList.stream().forEach(queryLine -> {
+            String[] queryTable = queryLine.split("\t");
+            String query = queryTable[0];
+            String filterQuery = queryTable.length > 1 ? queryTable[1] : null;
+            ForkJoinTask task = threadPool.submit(new ProcessDocTask(sourceSolr, targetSolr, sourceCollection, targetCollection, query.trim(), documentFields, readBatchSize, writeBatchSize, filterQuery));
             taskList.add(task);
         });
 
