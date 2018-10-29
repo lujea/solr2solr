@@ -273,6 +273,7 @@ public class IndexClient {
             solrClientMap.put(randomId, solrClient);
         }
         localCloudSolrClient = solrClientMap.get(randomId);
+        localCloudSolrClient.connect();
         return localCloudSolrClient;
     }
 
